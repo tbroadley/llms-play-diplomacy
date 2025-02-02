@@ -1,16 +1,15 @@
-import os
 import asyncio
 import random
-from typing import List, Dict, Optional
+from typing import List, Optional
 from dotenv import load_dotenv
 from diplomacy import Game, Power
-from diplomacy.utils.export import to_saved_game_format
-from langchain_core.tools import tool, StructuredTool
+from langchain.tools import StructuredTool
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents.format_scratchpad.openai_functions import format_to_openai_functions
-from langchain.callbacks import get_openai_callback
+from langchain.agents import AgentExecutor
+from langchain.agents.format_scratchpad import format_to_openai_functions
+from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_community.callbacks.manager import get_openai_callback
 
 # Load environment variables (make sure to set OPENAI_API_KEY in .env)
 load_dotenv()
@@ -21,8 +20,6 @@ class EnglandAgent:
         self.power: Power = game.powers['ENGLAND']
         self.agent: Optional[AgentExecutor] = None
         self.chat_history = []
-        self.total_cost = 0.0
-        self.total_tokens = 0
 
     def submit_moves(self, moves: List[str]) -> str:
         """Submit a list of moves for England. Each move should be a valid Diplomacy order string.
@@ -112,16 +109,8 @@ class EnglandAgent:
     async def create_agent(self):
         """Create the LangChain agent for England."""
         llm = ChatOpenAI(temperature=0.7)
-        
-        # Get map information
-        map_info = {}
-        for loc in self.game.map.abuts:
-            # Only include land and sea territories, skip coast specifications
-            if not any(c in loc for c in ['/', '-']):
-                neighbors = set()
-                for unit_type in self.game.map.abuts[loc]:
-                    neighbors.update(n.split('/')[0] for n in self.game.map.abuts[loc][unit_type])
-                map_info[loc] = sorted(list(neighbors))
+
+        map_info = self.game.map.loc_abut
         
         SYSTEM_PROMPT = f"""You are playing as England in a game of Diplomacy. Your goal is to expand your territory
         and eventually dominate Europe. You should analyze the current game state and make strategic moves for all your units.
@@ -174,7 +163,20 @@ class EnglandAgent:
         )
         
         tools = [submit_moves_tool]
-        agent = create_openai_functions_agent(llm, tools, prompt)
+
+        llm_with_tools = llm.bind_tools(tools)
+        
+        agent = (
+            {
+                "input": lambda x: x["input"],
+                "chat_history": lambda x: x["chat_history"],
+                "agent_scratchpad": lambda x: format_to_openai_functions(x["intermediate_steps"])
+            }
+            | prompt
+            | llm_with_tools
+            | OpenAIFunctionsAgentOutputParser()
+        )
+
         self.agent = AgentExecutor(agent=agent, tools=tools, verbose=True)
         return self.agent
 
@@ -191,7 +193,7 @@ class EnglandAgent:
         state = self.game.get_state()
         current_phase = self.game.get_current_phase()
         phase_type = self.game.phase_type
-        
+
         # Prepare the game state information
         game_state = f"""
 Current Game State:
@@ -225,15 +227,17 @@ Instructions:
                 if attempt > 0:
                     game_state += f"\n\nThis is attempt {attempt + 1} of {max_attempts}. Previous attempts failed. Please ensure all orders are valid."
                 
-                # Track costs for this attempt
+                # Use get_openai_callback to track token usage
                 with get_openai_callback() as cb:
                     result = await self.agent.ainvoke({
                         "input": game_state,
                         "chat_history": self.chat_history
                     })
-                    self.total_cost += cb.total_cost
-                    self.total_tokens += cb.total_tokens
-                    print(f"\nLLM Usage - Total Cost: ${self.total_cost:.4f}, Total Tokens: {self.total_tokens}")
+                    print(f"\nTurn {current_phase} Usage:")
+                    print(f"  Prompt Tokens: {cb.prompt_tokens}")
+                    print(f"  Completion Tokens: {cb.completion_tokens}")
+                    print(f"  Total Tokens: {cb.total_tokens}")
+                    print(f"  Total Cost: ${cb.total_cost:.4f}")
                 
                 # If we got here and last_valid_moves exists, it means the submit_moves tool validated the orders
                 if hasattr(self, 'last_valid_moves'):
@@ -255,7 +259,7 @@ async def main():
     england_agent = EnglandAgent(game)
     
     # Game loop
-    while not game.is_game_done and int(game.get_current_phase()[1:5]) <= 1901:
+    for _ in range(1): # TODO loop until game is done
         # Get moves from the England LLM agent
         try:
             england_orders = await england_agent.get_orders()
