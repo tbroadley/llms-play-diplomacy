@@ -9,7 +9,6 @@ from langchain.agents import AgentExecutor
 from langchain.agents.format_scratchpad import format_to_openai_functions
 from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_community.callbacks.manager import get_openai_callback
 
 # Load environment variables from .env (ensure your OPENAI_API_KEY is set)
 load_dotenv()
@@ -43,6 +42,7 @@ class EnglandAgent:
         Returns:
             A success message with validated moves, or an error message if any move is invalid.
         """
+        print(f"Moves: {moves}")
         if not isinstance(moves, list):
             return "Error: moves must be a list of strings"
         
@@ -100,6 +100,7 @@ class EnglandAgent:
                 invalid_moves.append(f"{move} - Malformed order")
         
         if invalid_moves:
+            print(f"Invalid moves: {invalid_moves}")
             return "Error - Invalid moves:\n" + "\n".join(invalid_moves)
         
         # Save the valid moves for later use by the agent
@@ -209,22 +210,16 @@ Submit your moves as a list of strings, e.g.: ["A LON H", "F NTH - NWY"].
         phase_type = self.game.phase_type
         game_state = self._build_game_state(phase_type, state)
         
-        max_attempts = 3
+        max_attempts = 1
         for attempt in range(max_attempts):
             try:
                 if attempt > 0:
                     game_state += f"\n\nThis is attempt {attempt + 1} of {max_attempts}. Previous attempts failed. Please ensure all orders are valid."
                 
-                with get_openai_callback() as cb:
-                    result = await self.agent.ainvoke({
-                        "input": game_state,
-                        "chat_history": self.chat_history
-                    })
-                    print(f"\nTurn {self.game.get_current_phase()} Usage:")
-                    print(f"  Prompt Tokens: {cb.prompt_tokens}")
-                    print(f"  Completion Tokens: {cb.completion_tokens}")
-                    print(f"  Total Tokens: {cb.total_tokens}")
-                    print(f"  Total Cost: ${cb.total_cost:.4f}")
+                result = await self.agent.ainvoke({
+                    "input": game_state,
+                    "chat_history": self.chat_history
+                })
                 
                 if hasattr(self, 'last_valid_moves'):
                     self.chat_history.append(("human", game_state))
