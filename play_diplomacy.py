@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from typing import List
 import diplomacy
 import time
-
+import json
 # Load environment variables
 load_dotenv()
 
@@ -50,10 +50,11 @@ Game phase history:
 
     def _format_phase_history(self) -> str:
         """Format the phase history of the game."""
-        return "\n".join([f"- {phase}" for phase in self.game.phase_history])
+        return "\n".join([f"- {phase}" for phase in self.game.state_history])
 
     def submit_moves(self, power_name: str, moves: List[str]) -> str:
         """Submit moves for a power and process the turn."""
+
         try:
             # Set the moves for the power
             self.game.set_orders(power_name, moves)
@@ -82,8 +83,9 @@ def get_moves_from_ai(game_state: str) -> List[str]:
 
     system_message = """You are an AI playing Diplomacy. Your task is to suggest valid moves 
     in standard Diplomacy notation (e.g., 'F LON - NTH'). Analyze the game state carefully and 
-    provide strategic moves. Each move should be on a new line and should be valid for the current
-    game state. Consider supply centers owned and potential strategic positions.
+    provide strategic moves. Consider supply centers owned and potential strategic positions.
+
+    Use the submit_moves tool to submit your moves.
 
     Remember:
     - In Spring/Fall: Provide movement orders for all units
@@ -97,10 +99,30 @@ def get_moves_from_ai(game_state: str) -> List[str]:
             {"role": "system", "content": system_message},
             {"role": "user", "content": game_state},
         ],
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "submit_moves",
+                    "description": "Submit the moves for the current power",
+                    "parameters": {
+                    "type": "object",
+                    "properties": {
+                            "moves": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+        ],
     )
 
+    print(response.choices[0].message)
+    tool_call = response.choices[0].message.tool_calls[0]
+    if not tool_call or tool_call.function.name != "submit_moves":
+        raise ValueError("No valid tool call found in the response")
+
     # Extract moves from the response
-    moves = response.choices[0].message.content.strip().split("\n")
+    moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
     return [move.strip() for move in moves if move.strip()]
 
 
