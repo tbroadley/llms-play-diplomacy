@@ -199,8 +199,6 @@ async def play_game(max_turns: int):
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
         print("-" * 50)
 
-        print(game.game.get_all_possible_orders())
-
         # Collect moves from all powers in parallel
         moves_by_power = {}
         tasks = []
