@@ -5,7 +5,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
 from dotenv import load_dotenv
-from typing import List, Dict, Literal, Tuple
+from typing import List, Dict, Tuple
 import diplomacy
 import json
 import asyncio
@@ -166,23 +166,19 @@ Private messages:
 
 
 class SubmitMovesAction(BaseModel):
-    type: Literal["submit_moves"]
     moves: List[str]
 
 
 class SendPublicMessageAction(BaseModel):
-    type: Literal["send_public_message"]
     message: str
 
 
 class SendPrivateMessageAction(BaseModel):
-    type: Literal["send_private_message"]
     message: str
     power: str
 
 
 class SleepAction(BaseModel):
-    type: Literal["sleep"]
     seconds: int
 
 
@@ -325,15 +321,15 @@ class Player:
             actions = await self._get_actions(game_state)
             print(f"Actions for {self.power_name}: {actions}")
             for action in actions:
-                if action.type == "submit_moves":
+                if isinstance(action, SubmitMovesAction):
                     self.game.submit_moves(self.power_name, action.moves)
-                elif action.type == "send_public_message":
+                elif isinstance(action, SendPublicMessageAction):
                     self.game.send_public_message(self.power_name, action.message)
-                elif action.type == "send_private_message":
+                elif isinstance(action, SendPrivateMessageAction):
                     self.game.send_private_message(
                         self.power_name, action.message, action.power
                     )
-                elif action.type == "sleep":
+                elif isinstance(action, SleepAction):
                     await asyncio.sleep(action.seconds)
 
 
@@ -349,7 +345,7 @@ async def play_game(turn_time_limit: int, max_turns: int):
     print("Starting new game with all powers...")
     print("-" * 50)
 
-    players = {power_name: Player(power_name) for power_name in POWERS}
+    players = {power_name: Player(game, power_name) for power_name in POWERS}
 
     while not game.is_game_over() and turn_count < max_turns:
         turn_start_time = datetime.now()
