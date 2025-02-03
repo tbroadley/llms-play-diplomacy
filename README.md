@@ -1,7 +1,7 @@
 # Running
 
 ```
-python play_diplomacy.py
+python main.py
 ```
 
 # Output location
