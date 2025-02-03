@@ -1,3 +1,4 @@
+import datetime
 from typing import Dict, List, Tuple
 import diplomacy
 from collections import defaultdict
@@ -17,10 +18,12 @@ class DiplomacyGame:
         self.public_messages: List[Message] = []
         self.private_messages: Dict[Tuple[str, str], List[Message]] = defaultdict(list)
 
-    def get_current_state(self, power_name: str) -> str:
+    def get_current_state(self, power_name: str, end_time: datetime.datetime) -> str:
         """Get the current game state for a specific power."""
         power = self.game.get_power(power_name)
         units = power.units
+
+        print(datetime.datetime)
 
         # Format the game state information
         state = f"""
@@ -41,6 +44,8 @@ Public messages:
 
 Private messages:
 {self._format_private_messages(power_name)}
+
+Time left to make your moves: {end_time - datetime.datetime.now()}
 """
         return state
 

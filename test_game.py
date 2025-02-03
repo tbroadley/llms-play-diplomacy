@@ -1,10 +1,17 @@
+import datetime
+from unittest.mock import patch
+
 from game import DiplomacyGame
 
 
-def test_game_get_current_state():
+@patch("datetime.datetime", wraps=datetime.datetime)
+def test_game_get_current_state(mock_datetime):
+    fixed_time = datetime.datetime(2024, 1, 1, 12, 0, 0)
+    mock_datetime.now.return_value = fixed_time
+
     game = DiplomacyGame(turn_time_limit=0)
     assert (
-        game.get_current_state("AUSTRIA")
+        game.get_current_state("AUSTRIA", datetime.datetime(2024, 1, 1, 12, 0, 5))
         == """
 You are playing as AUSTRIA in SPRING 1901 MOVEMENT.
 You control the following units:
@@ -52,5 +59,7 @@ Public messages:
 
 Private messages:
 
+
+Time left to make your moves: 0:00:05
 """
     )

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
@@ -34,24 +35,17 @@ Action = (
 )
 
 
-class Player:
-    def __init__(self, game: DiplomacyGame, power_name: str, client: AsyncOpenAI):
-        self.game = game
-        self.power_name = power_name
-        self.client = client
+@lru_cache(maxsize=1)
+def get_system_message():
+    with open("rules.txt", "r") as f:
+        rules = f.read()
 
-        with open("rules.txt", "r") as f:
-            self.rules = f.read()
-
-    async def _get_actions(self, game_state: str, end_time: datetime) -> List[Action]:
-        """Get moves from the AI based on the current game state."""
-
-        system_message = f"""
-    You are an AI playing as {self.power_name} in the game of Diplomacy.
+    return f"""
+    You are an AI playing the game of Diplomacy.
 
     Here are some rules to get you started:
 
-    {self.rules}
+    {rules}
 
     # Important notes on how to play the game:
 
@@ -85,17 +79,24 @@ class Player:
     - `send_private_message`: Send a private message to a specific power.
     - `sleep`: Do nothing for a specified number of seconds.
     - `submit_moves`: Submit the moves for the current power.
-
-    ### Time:
-    You have {end_time - datetime.now()} left to submit your moves.
     """
+
+
+class Player:
+    def __init__(self, game: DiplomacyGame, power_name: str, client: AsyncOpenAI):
+        self.game = game
+        self.power_name = power_name
+        self.client = client
+
+    async def _get_actions(self, game_state: str) -> List[Action]:
+        """Get moves from the AI based on the current game state."""
 
         try:
             response = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 temperature=0.1,
                 messages=[
-                    {"role": "system", "content": system_message},
+                    {"role": "system", "content": get_system_message()},
                     {"role": "user", "content": game_state},
                 ],
                 tools=[
@@ -182,8 +183,8 @@ class Player:
         end_time = datetime.now() + timedelta(seconds=self.game.turn_time_limit)
 
         while True:
-            game_state = self.game.get_current_state(self.power_name)
-            actions = await self._get_actions(game_state, end_time)
+            game_state = self.game.get_current_state(self.power_name, end_time)
+            actions = await self._get_actions(game_state)
             print(f"Actions for {self.power_name}: {actions}")
             for action in actions:
                 if isinstance(action, SubmitMovesAction):
