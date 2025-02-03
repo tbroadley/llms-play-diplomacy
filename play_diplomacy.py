@@ -183,8 +183,7 @@ class Player:
             if tool_call.function.name != "submit_moves":
                 raise ValueError("First tool call must be submit_moves")
 
-            moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
-            return [move.strip() for move in moves if move.strip()]
+            return json.loads(tool_call.function.arguments)["moves"]
         except Exception as e:
             print(f"Error getting moves for {self.power_name}: {str(e)}")
             return []
