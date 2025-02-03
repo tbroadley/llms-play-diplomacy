@@ -40,11 +40,20 @@ class Player:
         self.power_name = power_name
         self.client = client
 
+        with open("rules.txt", "r") as f:
+            self.rules = f.read()
+
     async def _get_actions(self, game_state: str, end_time: datetime) -> List[Action]:
         """Get moves from the AI based on the current game state."""
 
         system_message = f"""
     You are an AI playing as {self.power_name} in the game of Diplomacy.
+
+    Here are some rules to get you started:
+
+    {self.rules}
+
+    # Important notes on how to play the game:
 
     ### Communication:
     - You can send public messages to all powers using the `send_public_message` tool.
