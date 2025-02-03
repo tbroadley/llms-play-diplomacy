@@ -23,8 +23,6 @@ class DiplomacyGame:
         power = self.game.get_power(power_name)
         units = power.units
 
-        print(datetime.datetime)
-
         # Format the game state information
         state = f"""
 You are playing as {power_name} in {self.game.phase}.
