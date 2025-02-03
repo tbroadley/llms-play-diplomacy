@@ -114,72 +114,79 @@ Other powers' supply centers:
         return "No winner yet"
 
 
-async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
-    """Get moves from the AI based on the current game state."""
+class Player:
+    def __init__(self, power_name: str):
+        self.power_name = power_name
 
-    system_message = f"""
-You are an AI playing as {power_name} in the game of Diplomacy. Your task is to suggest valid moves using standard Diplomacy notation. Analyze the game state carefully and provide strategic moves, considering supply centers owned and potential strategic positions.
+    async def get_moves_from_ai(self, game_state: str) -> List[str]:
+        """Get moves from the AI based on the current game state."""
 
-Use the `submit_moves` tool to submit your moves.
+        system_message = f"""
+    You are an AI playing as {self.power_name} in the game of Diplomacy. Your task is to suggest valid moves using standard Diplomacy notation. Analyze the game state carefully and provide strategic moves, considering supply centers owned and potential strategic positions.
 
-### Movement Phase Orders:
-- **Movement Orders**: In Spring and Fall, provide movement orders for all units. Use the format `UnitType Location - Destination` (e.g., `F LON - NTH` for a fleet moving from London to the North Sea).
-- **Hold Orders**: To hold a position, use the format `UnitType Location H` (e.g., `A PAR H` to hold an army in Paris).
-- **Support Orders**: To support another unit's move, use the format `UnitType Location S UnitType Location - Destination` (e.g., `A PAR S A BUR - MUN` to support an army in Burgundy moving to Munich from Paris).
-- **Convoy Orders**: To convoy an army across water, use the format `F Location C A Location - Destination` (e.g., `F ENG C A LON - BRE` to convoy an army from London to Brest via the English Channel).
+    Use the `submit_moves` tool to submit your moves.
 
-### Retreat Phase Orders:
-- **Retreat Orders**: To retreat, use the format `UnitType Location R Destination` (e.g., `A PAR R BUR` to retreat an army from Paris to Burgundy).
-- **Disband Orders**: If you want to disband a unit instead of retreating, use the format `UnitType Location D` (e.g., `A PAR D` to disband an army in Paris).
+    ### Movement Phase Orders:
+    - **Movement Orders**: In Spring and Fall, provide movement orders for all units. Use the format `UnitType Location - Destination` (e.g., `F LON - NTH` for a fleet moving from London to the North Sea).
+    - **Hold Orders**: To hold a position, use the format `UnitType Location H` (e.g., `A PAR H` to hold an army in Paris).
+    - **Support Orders**: To support another unit's move, use the format `UnitType Location S UnitType Location - Destination` (e.g., `A PAR S A BUR - MUN` to support an army in Burgundy moving to Munich from Paris).
+    - **Convoy Orders**: To convoy an army across water, use the format `F Location C A Location - Destination` (e.g., `F ENG C A LON - BRE` to convoy an army from London to Brest via the English Channel).
 
-### Adjustment Phase Orders:
-- **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
-- **Waiving a Build**: To waive a build, use the order `WAIVE`. Use this order multiple times if you need to waive multiple builds.
-- **Disband Orders**: If you need to remove units, use the format `UnitType Location D` (e.g., `A LON D` to disband an army in London).
+    ### Retreat Phase Orders:
+    - **Retreat Orders**: To retreat, use the format `UnitType Location R Destination` (e.g., `A PAR R BUR` to retreat an army from Paris to Burgundy).
+    - **Disband Orders**: If you want to disband a unit instead of retreating, use the format `UnitType Location D` (e.g., `A PAR D` to disband an army in Paris).
 
-### Strategic Considerations:
-- **Supply Centers**: Focus on capturing and holding supply centers to build more units.
-- **Alliances and Conflicts**: Consider potential alliances and conflicts with other powers. Support and convoy orders can be crucial in forming strategic partnerships.
-- **Defense and Expansion**: Balance between defending your current territories and expanding into new ones.
+    ### Adjustment Phase Orders:
+    - **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
+    - **Waiving a Build**: To waive a build, use the order `WAIVE`. Use this order multiple times if you need to waive multiple builds.
+    - **Disband Orders**: If you need to remove units, use the format `UnitType Location D` (e.g., `A LON D` to disband an army in London).
 
-### Submission:
-- Use the `submit_moves` tool to submit your moves once you have determined the best strategy.
-    """
+    ### Strategic Considerations:
+    - **Supply Centers**: Focus on capturing and holding supply centers to build more units.
+    - **Alliances and Conflicts**: Consider potential alliances and conflicts with other powers. Support and convoy orders can be crucial in forming strategic partnerships.
+    - **Defense and Expansion**: Balance between defending your current territories and expanding into new ones.
 
-    try:
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            temperature=0.1,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": game_state},
-            ],
-            tools=[
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "submit_moves",
-                        "description": "Submit the moves for the current power",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "moves": {"type": "array", "items": {"type": "string"}},
+    ### Submission:
+    - Use the `submit_moves` tool to submit your moves once you have determined the best strategy.
+        """
+
+        try:
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                temperature=0.1,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": game_state},
+                ],
+                tools=[
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "submit_moves",
+                            "description": "Submit the moves for the current power",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "moves": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                },
                             },
                         },
                     },
-                },
-            ],
-        )
+                ],
+            )
 
-        tool_call = response.choices[0].message.tool_calls[0]
-        if not tool_call or tool_call.function.name != "submit_moves":
-            raise ValueError("No valid tool call found in the response")
+            tool_call = response.choices[0].message.tool_calls[0]
+            if not tool_call or tool_call.function.name != "submit_moves":
+                raise ValueError("No valid tool call found in the response")
 
-        moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
-        return [move.strip() for move in moves if move.strip()]
-    except Exception as e:
-        print(f"Error getting moves for {power_name}: {str(e)}")
-        return []
+            moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
+            return [move.strip() for move in moves if move.strip()]
+        except Exception as e:
+            print(f"Error getting moves for {self.power_name}: {str(e)}")
+            return []
 
 
 async def play_game(max_turns: int):
@@ -194,6 +201,8 @@ async def play_game(max_turns: int):
     print("Starting new game with all powers...")
     print("-" * 50)
 
+    players = {power_name: Player(power_name) for power_name in POWERS}
+
     while not game.is_game_over() and turn_count < max_turns:
         turn_start_time = datetime.now()
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
@@ -204,13 +213,13 @@ async def play_game(max_turns: int):
         tasks = []
 
         # Create tasks for all powers
-        for power_name in POWERS:
+        for power_name, player in players.items():
             if not game.has_moves_to_make(power_name):
                 continue
 
             print(f"Preparing moves for {power_name}...")
             game_state = game.get_current_state(power_name)
-            task = asyncio.create_task(get_moves_from_ai(game_state, power_name))
+            task = asyncio.create_task(player.get_moves_from_ai(game_state))
             tasks.append((power_name, task))
 
         # Wait for all AI responses in parallel
