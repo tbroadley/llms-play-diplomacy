@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -33,7 +34,9 @@ class DiplomacyGame:
         self.game = diplomacy.Game()
         self.turn_start_time = None
         self.public_messages: List[Message] = []
-        self.private_messages: Dict[Tuple[str, str], Message] = {}
+        self.private_messages: Dict[Tuple[str, str], List[Message]] = defaultdict(
+            list
+        )
 
     def get_current_state(self, power_name: str) -> str:
         """Get the current game state for a specific power."""
