@@ -3,7 +3,9 @@ from game import DiplomacyGame
 
 def test_game_get_current_state():
     game = DiplomacyGame(turn_time_limit=0)
-    assert game.get_current_state("AUSTRIA") == """
+    assert (
+        game.get_current_state("AUSTRIA")
+        == """
 You are playing as AUSTRIA in SPRING 1901 MOVEMENT.
 You control the following units:
 - A BUD
@@ -51,3 +53,4 @@ Public messages:
 Private messages:
 
 """
+    )
