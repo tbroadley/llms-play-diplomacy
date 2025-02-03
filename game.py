@@ -29,11 +29,9 @@ You control the following units:
 {self._format_units(units)}
 
 Supply centers owned: {", ".join(power.centers)}
+
 Current state of all units on the board:
 {self._format_all_units()}
-
-Game phase history:
-{self._format_phase_history()}
 
 Other powers' supply centers:
 {self._format_supply_centers()}
@@ -55,12 +53,10 @@ Private messages:
         all_units = []
         for power in self.game.powers.values():
             for unit in power.units:
-                all_units.append(f"- {power.name}: {unit}")
+                all_units.append(
+                    f"- {power.name}: {unit} (can move to {', '.join(self.game.map.abut_list(unit.split(' ')[1]))})"
+                )
         return "\n".join(all_units)
-
-    def _format_phase_history(self) -> str:
-        """Format the phase history of the game."""
-        return "\n".join([f"- {phase}" for phase in self.game.state_history])
 
     def _format_supply_centers(self) -> str:
         """Format the supply centers owned by each power."""
