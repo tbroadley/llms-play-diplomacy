@@ -29,10 +29,10 @@ class Message(BaseModel):
 
 
 class DiplomacyGame:
-    def __init__(self):
+    def __init__(self, turn_time_limit: int):
         """Initialize a new standard Diplomacy game."""
         self.game = diplomacy.Game()
-        self.turn_start_time = None
+        self.turn_time_limit = turn_time_limit
         self.public_messages: List[Message] = []
         self.private_messages: Dict[Tuple[str, str], List[Message]] = defaultdict(list)
 
@@ -192,13 +192,18 @@ class Player:
         self.game = game
         self.power_name = power_name
 
-    async def _get_actions(self, game_state: str) -> List[Action]:
+    async def _get_actions(
+        self, game_state: str, end_time: datetime
+    ) -> List[Action]:
         """Get moves from the AI based on the current game state."""
 
         system_message = f"""
-    You are an AI playing as {self.power_name} in the game of Diplomacy. Your task is to suggest valid moves using standard Diplomacy notation. Analyze the game state carefully and provide strategic moves, considering supply centers owned and potential strategic positions.
+    You are an AI playing as {self.power_name} in the game of Diplomacy.
 
-    Use the `submit_moves` tool to submit your moves.
+    ### Communication:
+    - You can send public messages to all powers using the `send_public_message` tool.
+    - You can send private messages to specific powers using the `send_private_message` tool.
+    - You can sleep for a specified number of seconds using the `sleep` tool, to wait for other powers to send you messages.
 
     ### Movement Phase Orders:
     - **Movement Orders**: In Spring and Fall, provide movement orders for all units. Use the format `UnitType Location - Destination` (e.g., `F LON - NTH` for a fleet moving from London to the North Sea).
@@ -225,7 +230,10 @@ class Player:
     - `send_private_message`: Send a private message to a specific power.
     - `sleep`: Do nothing for a specified number of seconds.
     - `submit_moves`: Submit the moves for the current power.
-        """
+
+    ### Time:
+    You have {end_time - datetime.now()} left to submit your moves.
+    """
 
         try:
             response = await client.chat.completions.create(
@@ -316,9 +324,12 @@ class Player:
         return None
 
     async def run(self):
+        start_time = datetime.now()
+        end_time = start_time + datetime.timedelta(seconds=self.game.turn_time_limit)
+
         while True:
             game_state = self.game.get_current_state(self.power_name)
-            actions = await self._get_actions(game_state)
+            actions = await self._get_actions(game_state, end_time)
             print(f"Actions for {self.power_name}: {actions}")
             for action in actions:
                 if isinstance(action, SubmitMovesAction):
@@ -335,7 +346,7 @@ class Player:
 
 async def play_game(turn_time_limit: int, max_turns: int):
     """Play the game for a specified number of turns."""
-    game = DiplomacyGame()
+    game = DiplomacyGame(turn_time_limit)
     renderer = diplomacy.engine.renderer.Renderer(game.game)
     turn_count = 0
 
@@ -401,4 +412,4 @@ async def play_game(turn_time_limit: int, max_turns: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(play_game(turn_time_limit=30, max_turns=100))
+    asyncio.run(play_game(turn_time_limit=10, max_turns=100))
