@@ -167,10 +167,7 @@ class Player:
                             "parameters": {
                                 "type": "object",
                                 "properties": {
-                                    "moves": {
-                                        "type": "array",
-                                        "items": {"type": "string"},
-                                    },
+                                    "moves": {"type": "array", "items": {"type": "string"}},
                                 },
                             },
                         },
@@ -178,9 +175,13 @@ class Player:
                 ],
             )
 
-            tool_call = response.choices[0].message.tool_calls[0]
-            if not tool_call or tool_call.function.name != "submit_moves":
-                raise ValueError("No valid tool call found in the response")
+            tool_calls = response.choices[0].message.tool_calls
+            if not tool_calls:
+                raise ValueError("No tool call found in the response")
+
+            tool_call = tool_calls[0]
+            if tool_call.function.name != "submit_moves":
+                raise ValueError("First tool call must be submit_moves")
 
             moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
             return [move.strip() for move in moves if move.strip()]
