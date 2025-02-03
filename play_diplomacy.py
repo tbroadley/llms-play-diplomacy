@@ -34,9 +34,7 @@ class DiplomacyGame:
         self.game = diplomacy.Game()
         self.turn_start_time = None
         self.public_messages: List[Message] = []
-        self.private_messages: Dict[Tuple[str, str], List[Message]] = defaultdict(
-            list
-        )
+        self.private_messages: Dict[Tuple[str, str], List[Message]] = defaultdict(list)
 
     def get_current_state(self, power_name: str) -> str:
         """Get the current game state for a specific power."""
@@ -325,6 +323,7 @@ class Player:
         while True:
             game_state = self.game.get_current_state(self.power_name)
             actions = await self._get_actions(game_state)
+            print(f"Actions for {self.power_name}: {actions}")
             for action in actions:
                 if action.type == "submit_moves":
                     self.game.submit_moves(self.power_name, action.moves)
@@ -357,20 +356,16 @@ async def play_game(turn_time_limit: int, max_turns: int):
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
         print("-" * 50)
 
-        # Collect moves from all powers in parallel
         tasks = []
-
-        # Create tasks for all powers
         for power_name, player in players.items():
-            if not game.has_moves_to_make(power_name):
-                continue
-
-            print(f"Running {power_name}...")
             task = asyncio.create_task(player.run())
             tasks.append(task)
 
         try:
-            await asyncio.wait_for(asyncio.gather(*tasks), timeout=turn_time_limit)
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=turn_time_limit,
+            )
         except asyncio.TimeoutError:
             for _, task in tasks:
                 task.cancel()
@@ -410,4 +405,4 @@ async def play_game(turn_time_limit: int, max_turns: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(play_game(max_turns=100))
+    asyncio.run(play_game(turn_time_limit=30, max_turns=100))
