@@ -129,7 +129,8 @@ Use the `submit_moves` tool to submit your moves.
 - **Convoy Orders**: To convoy an army across water, use the format `F Location C A Location - Destination` (e.g., `F ENG C A LON - BRE` to convoy an army from London to Brest via the English Channel).
 
 ### Retreat Phase Orders:
-- **Retreat Orders**: To retreat, use the format `UnitType Location R - Destination` (e.g., `A PAR R - BUR` to retreat an army from Paris to Burgundy).
+- **Retreat Orders**: To retreat, use the format `UnitType Location R Destination` (e.g., `A PAR R BUR` to retreat an army from Paris to Burgundy).
+- **Disband Orders**: If you want to disband a unit instead of retreating, use the format `UnitType Location D` (e.g., `A PAR D` to disband an army in Paris).
 
 ### Adjustment Phase Orders:
 - **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
