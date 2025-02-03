@@ -71,13 +71,11 @@ Other powers' supply centers:
     def has_moves_to_make(self, power: str) -> bool:
         """Check if a power has moves to make."""
         power = self.game.get_power(power)
-        if power.moves_submitted():
-            return False
         if self.game.phase_type == "R":
             return len(power.retreats.keys()) > 0
         if self.game.phase_type == "A":
             return len(power.centers) != len(power.units)
-        return True
+        return not power.moves_submitted()
 
     def submit_moves(self, moves_by_power: Dict[str, List[str]]) -> Dict[str, str]:
         """Submit moves for all powers and process the turn."""
