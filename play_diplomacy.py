@@ -165,7 +165,7 @@ async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
         return []
 
 
-async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
+async def play_game(max_turns: int):
     """Play the game for a specified number of turns."""
     game = DiplomacyGame()
     renderer = diplomacy.engine.renderer.Renderer(game.game)
@@ -215,11 +215,6 @@ async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
         # Render game to SVG
         renderer.render(output_path="game.svg")
 
-        # Add a delay between turns to make it easier to follow
-        if turn_count < max_turns:
-            print(f"\nWaiting {delay_between_turns} seconds before next turn...")
-            await asyncio.sleep(delay_between_turns)
-
     print("\nGame finished!")
     print(f"Completed {turn_count} turns")
     if game.is_game_over():
@@ -234,4 +229,4 @@ async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
 
 
 if __name__ == "__main__":
-    asyncio.run(play_game(max_turns=100, delay_between_turns=0))
+    asyncio.run(play_game(max_turns=100))
