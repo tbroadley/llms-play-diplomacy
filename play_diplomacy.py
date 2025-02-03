@@ -116,16 +116,28 @@ Other powers' supply centers:
 async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
     """Get moves from the AI based on the current game state."""
 
-    system_message = f"""You are an AI playing as {power_name} in Diplomacy. Your task is to suggest valid moves 
-    in standard Diplomacy notation (e.g., 'F LON - NTH'). Analyze the game state carefully and 
-    provide strategic moves. Consider supply centers owned and potential strategic positions.
+    system_message = f"""
+You are an AI playing as {power_name} in the game of Diplomacy. Your task is to suggest valid moves using standard Diplomacy notation. Analyze the game state carefully and provide strategic moves, considering supply centers owned and potential strategic positions.
 
-    Use the submit_moves tool to submit your moves.
+Use the `submit_moves` tool to submit your moves.
 
-    Remember:
-    - In Spring/Fall: Provide movement orders for all units
-    - In Winter: If you need to build units, provide build orders (e.g., 'A LON B')
-    - If you need to remove units, provide remove orders (e.g., 'A LON D')"""
+### General Guidelines:
+- **Movement Orders**: In Spring and Fall, provide movement orders for all units. Use the format `UnitType Location - Destination` (e.g., `F LON - NTH` for a fleet moving from London to the North Sea).
+- **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
+- **Disband Orders**: If you need to remove units, use the format `UnitType Location D` (e.g., `A LON D` to disband an army in London).
+
+### Advanced Moves:
+- **Support Orders**: To support another unit's move, use the format `UnitType Location S UnitType Location - Destination` (e.g., `A PAR S A BUR - MUN` to support an army in Burgundy moving to Munich from Paris).
+- **Convoy Orders**: To convoy an army across water, use the format `F Location C A Location - Destination` (e.g., `F ENG C A LON - BRE` to convoy an army from London to Brest via the English Channel).
+
+### Strategic Considerations:
+- **Supply Centers**: Focus on capturing and holding supply centers to build more units.
+- **Alliances and Conflicts**: Consider potential alliances and conflicts with other powers. Support and convoy orders can be crucial in forming strategic partnerships.
+- **Defense and Expansion**: Balance between defending your current territories and expanding into new ones.
+
+### Submission:
+- Use the `submit_moves` tool to submit your moves once you have determined the best strategy.
+    """
 
     try:
         response = await client.chat.completions.create(
