@@ -1,3 +1,4 @@
+from pathlib import Path
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from typing import List, Dict
@@ -181,6 +182,9 @@ async def play_game(max_turns: int):
     renderer = diplomacy.engine.renderer.Renderer(game.game)
     turn_count = 0
 
+    output_dir = Path("output") / datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     print("Starting new game with all powers...")
     print("-" * 50)
 
@@ -222,8 +226,9 @@ async def play_game(max_turns: int):
             f"\nTurn {turn_count} completed in {turn_duration.total_seconds():.2f} seconds"
         )
 
-        # Render game to SVG
-        renderer.render(output_path="game.svg")
+        renderer.render(output_path=output_dir / "game.svg")
+        renderer.render(output_path=output_dir / f"{game.game.phase}.svg")
+        diplomacy.utils.export.to_saved_game_format(game.game, output_dir / "game_states.jsonl")
 
     print("\nGame finished!")
     print(f"Completed {turn_count} turns")
