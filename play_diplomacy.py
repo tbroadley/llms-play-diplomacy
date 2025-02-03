@@ -68,6 +68,17 @@ Other powers' supply centers:
             centers.append(f"- {power.name}: {', '.join(power.centers)}")
         return "\n".join(centers)
 
+    def has_moves_to_make(self, power: str) -> bool:
+        """Check if a power has moves to make."""
+        power = self.game.get_power(power)
+        if power.moves_submitted():
+            return False
+        if self.game.phase_type == "R":
+            return len(power.retreats.keys()) > 0
+        if self.game.phase_type == "A":
+            return len(power.centers) != len(power.units)
+        return True
+
     def submit_moves(self, moves_by_power: Dict[str, List[str]]) -> Dict[str, str]:
         """Submit moves for all powers and process the turn."""
         results = {}
@@ -120,7 +131,7 @@ async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_message},
@@ -157,6 +168,7 @@ async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
 async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
     """Play the game for a specified number of turns."""
     game = DiplomacyGame()
+    renderer = diplomacy.engine.renderer.Renderer(game.game)
     turn_count = 0
 
     print("Starting new game with all powers...")
@@ -173,6 +185,9 @@ async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
 
         # Create tasks for all powers
         for power_name in POWERS:
+            if not game.has_moves_to_make(power_name):
+                continue
+
             print(f"Preparing moves for {power_name}...")
             game_state = game.get_current_state(power_name)
             task = asyncio.create_task(get_moves_from_ai(game_state, power_name))
@@ -197,6 +212,9 @@ async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
             f"\nTurn {turn_count} completed in {turn_duration.total_seconds():.2f} seconds"
         )
 
+        # Render game to SVG
+        renderer.render(output_path="game.svg")
+
         # Add a delay between turns to make it easier to follow
         if turn_count < max_turns:
             print(f"\nWaiting {delay_between_turns} seconds before next turn...")
@@ -216,4 +234,4 @@ async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
 
 
 if __name__ == "__main__":
-    asyncio.run(play_game(max_turns=10, delay_between_turns=2))
+    asyncio.run(play_game(max_turns=100, delay_between_turns=0))
