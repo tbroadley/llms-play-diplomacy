@@ -122,14 +122,19 @@ You are an AI playing as {power_name} in the game of Diplomacy. Your task is to 
 
 Use the `submit_moves` tool to submit your moves.
 
-### General Guidelines:
+### Movement Phase Orders:
 - **Movement Orders**: In Spring and Fall, provide movement orders for all units. Use the format `UnitType Location - Destination` (e.g., `F LON - NTH` for a fleet moving from London to the North Sea).
-- **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
-- **Disband Orders**: If you need to remove units, use the format `UnitType Location D` (e.g., `A LON D` to disband an army in London).
-
-### Advanced Moves:
+- **Hold Orders**: To hold a position, use the format `UnitType Location H` (e.g., `A PAR H` to hold an army in Paris).
 - **Support Orders**: To support another unit's move, use the format `UnitType Location S UnitType Location - Destination` (e.g., `A PAR S A BUR - MUN` to support an army in Burgundy moving to Munich from Paris).
 - **Convoy Orders**: To convoy an army across water, use the format `F Location C A Location - Destination` (e.g., `F ENG C A LON - BRE` to convoy an army from London to Brest via the English Channel).
+
+### Retreat Phase Orders:
+- **Retreat Orders**: To retreat, use the format `UnitType Location R - Destination` (e.g., `A PAR R - BUR` to retreat an army from Paris to Burgundy).
+
+### Adjustment Phase Orders:
+- **Build Orders**: In Winter, if you need to build units, use the format `UnitType Location B` (e.g., `A LON B` to build an army in London).
+- **Waiving a Build**: To waive a build, use the order `WAIVE`. Use this order multiple times if you need to waive multiple builds.
+- **Disband Orders**: If you need to remove units, use the format `UnitType Location D` (e.g., `A LON D` to disband an army in London).
 
 ### Strategic Considerations:
 - **Supply Centers**: Focus on capturing and holding supply centers to build more units.
@@ -193,6 +198,8 @@ async def play_game(max_turns: int):
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
         print("-" * 50)
 
+        print(game.game.get_all_possible_orders())
+
         # Collect moves from all powers in parallel
         moves_by_power = {}
         tasks = []
@@ -226,9 +233,13 @@ async def play_game(max_turns: int):
             f"\nTurn {turn_count} completed in {turn_duration.total_seconds():.2f} seconds"
         )
 
-        renderer.render(output_path=output_dir / "game.svg")
-        renderer.render(output_path=output_dir / f"{game.game.phase}.svg")
-        diplomacy.utils.export.to_saved_game_format(game.game, output_dir / "game_states.jsonl")
+        renderer.render(output_path=output_dir / "game.svg", incl_orders=True)
+        renderer.render(
+            output_path=output_dir / f"{game.game.phase}.svg", incl_orders=True
+        )
+        diplomacy.utils.export.to_saved_game_format(
+            game.game, output_dir / "game_states.jsonl"
+        )
 
     print("\nGame finished!")
     print(f"Completed {turn_count} turns")
