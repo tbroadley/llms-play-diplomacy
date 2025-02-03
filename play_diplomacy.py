@@ -1,15 +1,16 @@
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from typing import List, Dict
 import diplomacy
-import time
 import json
+import asyncio
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
 # Initialize OpenAI client
-client = OpenAI()
+client = AsyncOpenAI()
 
 # Define all powers in the game
 POWERS = ["AUSTRIA", "ENGLAND", "FRANCE", "GERMANY", "ITALY", "RUSSIA", "TURKEY"]
@@ -19,6 +20,7 @@ class DiplomacyGame:
     def __init__(self):
         """Initialize a new standard Diplomacy game."""
         self.game = diplomacy.Game()
+        self.turn_start_time = None
 
     def get_current_state(self, power_name: str) -> str:
         """Get the current game state for a specific power."""
@@ -102,10 +104,10 @@ Other powers' supply centers:
         return "No winner yet"
 
 
-def get_moves_from_ai(game_state: str) -> List[str]:
+async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
     """Get moves from the AI based on the current game state."""
 
-    system_message = """You are an AI playing Diplomacy. Your task is to suggest valid moves 
+    system_message = f"""You are an AI playing as {power_name} in Diplomacy. Your task is to suggest valid moves 
     in standard Diplomacy notation (e.g., 'F LON - NTH'). Analyze the game state carefully and 
     provide strategic moves. Consider supply centers owned and potential strategic positions.
 
@@ -116,39 +118,43 @@ def get_moves_from_ai(game_state: str) -> List[str]:
     - In Winter: If you need to build units, provide build orders (e.g., 'A LON B')
     - If you need to remove units, provide remove orders (e.g., 'A LON D')"""
 
-    response = client.chat.completions.create(
-        model="gpt-4",
-        temperature=0.1,
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": game_state},
-        ],
-        tools=[
-            {
-                "type": "function",
-                "function": {
-                    "name": "submit_moves",
-                    "description": "Submit the moves for the current power",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "moves": {"type": "array", "items": {"type": "string"}},
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4",
+            temperature=0.1,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": game_state},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "submit_moves",
+                        "description": "Submit the moves for the current power",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "moves": {"type": "array", "items": {"type": "string"}},
+                            },
                         },
                     },
                 },
-            },
-        ],
-    )
+            ],
+        )
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    if not tool_call or tool_call.function.name != "submit_moves":
-        raise ValueError("No valid tool call found in the response")
+        tool_call = response.choices[0].message.tool_calls[0]
+        if not tool_call or tool_call.function.name != "submit_moves":
+            raise ValueError("No valid tool call found in the response")
 
-    moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
-    return [move.strip() for move in moves if move.strip()]
+        moves: list[str] = json.loads(tool_call.function.arguments)["moves"]
+        return [move.strip() for move in moves if move.strip()]
+    except Exception as e:
+        print(f"Error getting moves for {power_name}: {str(e)}")
+        return []
 
 
-def play_game(max_turns: int = 10, delay_between_turns: int = 2):
+async def play_game(max_turns: int = 10, delay_between_turns: int = 2):
     """Play the game for a specified number of turns."""
     game = DiplomacyGame()
     turn_count = 0
@@ -157,18 +163,24 @@ def play_game(max_turns: int = 10, delay_between_turns: int = 2):
     print("-" * 50)
 
     while not game.is_game_over() and turn_count < max_turns:
+        turn_start_time = datetime.now()
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
         print("-" * 50)
 
-        # Collect moves from all powers
+        # Collect moves from all powers in parallel
         moves_by_power = {}
-        for power_name in POWERS:
-            print(f"\nGetting moves for {power_name}...")
-            game_state = game.get_current_state(power_name)
-            print(f"Current Game State for {power_name}:")
-            print(game_state)
+        tasks = []
 
-            moves = get_moves_from_ai(game_state)
+        # Create tasks for all powers
+        for power_name in POWERS:
+            print(f"Preparing moves for {power_name}...")
+            game_state = game.get_current_state(power_name)
+            task = asyncio.create_task(get_moves_from_ai(game_state, power_name))
+            tasks.append((power_name, task))
+
+        # Wait for all AI responses in parallel
+        for power_name, task in tasks:
+            moves = await task
             moves_by_power[power_name] = moves
             print(f"\n{power_name} Suggested Moves:")
             print("\n".join(moves))
@@ -180,11 +192,15 @@ def play_game(max_turns: int = 10, delay_between_turns: int = 2):
             print(f"{power}: {result}")
 
         turn_count += 1
+        turn_duration = datetime.now() - turn_start_time
+        print(
+            f"\nTurn {turn_count} completed in {turn_duration.total_seconds():.2f} seconds"
+        )
 
         # Add a delay between turns to make it easier to follow
         if turn_count < max_turns:
             print(f"\nWaiting {delay_between_turns} seconds before next turn...")
-            time.sleep(delay_between_turns)
+            await asyncio.sleep(delay_between_turns)
 
     print("\nGame finished!")
     print(f"Completed {turn_count} turns")
@@ -200,4 +216,4 @@ def play_game(max_turns: int = 10, delay_between_turns: int = 2):
 
 
 if __name__ == "__main__":
-    play_game(max_turns=10, delay_between_turns=2)
+    asyncio.run(play_game(max_turns=10, delay_between_turns=2))
