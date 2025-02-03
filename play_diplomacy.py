@@ -120,7 +120,7 @@ async def get_moves_from_ai(game_state: str, power_name: str) -> List[str]:
 
     try:
         response = await client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_message},
