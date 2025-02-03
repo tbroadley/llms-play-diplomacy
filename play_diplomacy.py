@@ -9,7 +9,7 @@ from typing import List, Dict, Tuple
 import diplomacy
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -192,9 +192,7 @@ class Player:
         self.game = game
         self.power_name = power_name
 
-    async def _get_actions(
-        self, game_state: str, end_time: datetime
-    ) -> List[Action]:
+    async def _get_actions(self, game_state: str, end_time: datetime) -> List[Action]:
         """Get moves from the AI based on the current game state."""
 
         system_message = f"""
@@ -324,8 +322,7 @@ class Player:
         return None
 
     async def run(self):
-        start_time = datetime.now()
-        end_time = start_time + datetime.timedelta(seconds=self.game.turn_time_limit)
+        end_time = datetime.now() + timedelta(seconds=self.game.turn_time_limit)
 
         while True:
             game_state = self.game.get_current_state(self.power_name)
@@ -359,7 +356,6 @@ async def play_game(turn_time_limit: int, max_turns: int):
     players = {power_name: Player(game, power_name) for power_name in POWERS}
 
     while not game.is_game_over() and turn_count < max_turns:
-        turn_start_time = datetime.now()
         print(f"\nTurn {turn_count + 1} - {game.game.phase}")
         print("-" * 50)
 
@@ -369,26 +365,24 @@ async def play_game(turn_time_limit: int, max_turns: int):
             tasks.append(task)
 
         try:
-            await asyncio.wait_for(
+            results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
                 timeout=turn_time_limit,
             )
+            print(f"Results: {results}")
         except asyncio.TimeoutError:
-            for _, task in tasks:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+            # Wait for all tasks to complete/cancel
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process the turn
         game.process_turn()
 
         turn_count += 1
-        turn_duration = datetime.now() - turn_start_time
-        print(
-            f"\nTurn {turn_count} completed in {turn_duration.total_seconds():.2f} seconds"
-        )
+        print(f"\nTurn {turn_count} completed")
 
         renderer.render(output_path=output_dir / "game.svg", incl_orders=True)
         renderer.render(
@@ -412,4 +406,4 @@ async def play_game(turn_time_limit: int, max_turns: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(play_game(turn_time_limit=10, max_turns=100))
+    asyncio.run(play_game(turn_time_limit=15, max_turns=100))
